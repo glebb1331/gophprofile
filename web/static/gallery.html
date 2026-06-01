@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Gallery</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 overflow-hidden">
+      <header class="bg-gradient-to-r from-purple-600 to-blue-600 p-6 flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-white">Avatar Gallery</h1>
+          <p id="userIdLabel" class="text-white/80 mt-1"></p>
+        </div>
+        <a href="/" class="text-white/90 hover:text-white text-sm underline">Upload new</a>
+      </header>
+      <main class="p-6">
+        <div id="empty" class="hidden text-center text-white/70 py-12">
+          No avatars uploaded yet.
+        </div>
+        <div id="grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4"></div>
+        <div id="error" class="hidden mt-4 bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg"></div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const path = window.location.pathname.split('/');
+    const userId = decodeURIComponent(path[path.length - 1] || '');
+    document.getElementById('userIdLabel').textContent = userId ? `User: ${userId}` : 'No user selected';
+
+    async function loadAvatars() {
+      if (!userId) {
+        showError('No user id in URL');
+        return;
+      }
+      try {
+        const res = await fetch(`/api/v1/users/${encodeURIComponent(userId)}/avatars`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const payload = await res.json();
+        renderGrid(payload.items || []);
+      } catch (e) {
+        showError(`Failed to load avatars: ${e.message}`);
+      }
+    }
+
+    function renderGrid(items) {
+      const grid = document.getElementById('grid');
+      const empty = document.getElementById('empty');
+      grid.innerHTML = '';
+      if (!items.length) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      for (const a of items) {
+        const card = document.createElement('div');
+        card.className = 'bg-white/5 border border-white/10 rounded-xl p-3 flex flex-col items-center';
+        const img = document.createElement('img');
+        img.alt = a.file_name;
+        img.src = `/api/v1/avatars/${a.id}?size=300x300`;
+        img.onerror = () => { img.src = `/api/v1/avatars/${a.id}`; };
+        img.className = 'w-32 h-32 object-cover rounded-lg shadow';
+        const meta = document.createElement('div');
+        meta.className = 'mt-2 text-xs text-white/70 text-center break-all';
+        meta.textContent = `${a.file_name} · ${(a.size/1024).toFixed(1)} KB`;
+        const status = document.createElement('div');
+        status.className = 'mt-1 text-[10px] uppercase tracking-wider text-purple-200';
+        status.textContent = a.processing_status;
+        const del = document.createElement('button');
+        del.textContent = 'Delete';
+        del.className = 'mt-2 text-xs text-red-300 hover:text-red-200';
+        del.onclick = () => deleteAvatar(a.id);
+        card.append(img, meta, status, del);
+        grid.appendChild(card);
+      }
+    }
+
+    async function deleteAvatar(id) {
+      if (!confirm('Delete this avatar?')) return;
+      try {
+        const res = await fetch(`/api/v1/avatars/${id}`, {
+          method: 'DELETE',
+          headers: { 'X-User-ID': userId }
+        });
+        if (!res.ok && res.status !== 204) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        loadAvatars();
+      } catch (e) {
+        showError(`Delete failed: ${e.message}`);
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    loadAvatars();
+  </script>
+</body>
+
+</html>

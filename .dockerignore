@@ -1,0 +1,11 @@
+.git
+.gitignore
+.idea
+.vscode
+*.exe
+*.dll
+*.so
+*.dylib
+tests/testdata/*.tmp
+README.md
+LICENSE
